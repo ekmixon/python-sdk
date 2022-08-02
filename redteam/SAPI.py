@@ -26,7 +26,7 @@ class SAPI(object):
 
         self.funcs = IncludeFuncs.IncludeFuncs()
 
-        self.cache_dir = os.getcwd() + '/sapi'
+        self.cache_dir = f'{os.getcwd()}/sapi'
         if kwargs.get('cache_dir'):
             self.cache_dir = kwargs['cache_dir'] + '/sapi'
 
@@ -46,7 +46,7 @@ class SAPI(object):
             self.day = datetime.strftime(datetime.now(), '%Y%m%d')
         self.second = datetime.strftime(datetime.now(), '%Y%m%d%H%M%S')
 
-        self.picklejar = self.cache_dir + '/picklejar'
+        self.picklejar = f'{self.cache_dir}/picklejar'
         if kwargs.get('picklejar'):
             self.picklejar = kwargs['picklejar']
 
@@ -64,43 +64,42 @@ class SAPI(object):
         fields = re.split(':|-|\.', title)
         year = fields[1]
         number = fields[2][0]
-        pickledir = self.picklejar + '/RHSA/' + year + '/' + number
+        pickledir = f'{self.picklejar}/RHSA/{year}/{number}'
         if not os.path.isdir(pickledir):
             os.makedirs(pickledir)
         return pickledir
 
     def retrieve_redhat_cfrv(self):
         cvrf = []
-        today_pickle = self.picklejar + '/CVRF_' + self.day + '.pickle'
+        today_pickle = f'{self.picklejar}/CVRF_{self.day}.pickle'
         if os.path.isfile(today_pickle):
             with open(today_pickle, 'rb') as p:
                 cvrf = pickle.load(p)
+        elif self.connected:
+            response = urllib2.urlopen(f'{self.redhat_sapi}cvrf.json')
+            cvrf = json.loads(response.read())
+            with open(today_pickle, 'wb') as p:
+                pickle.dump(cvrf, p, -1)
         else:
-            if self.connected:
-                response = urllib2.urlopen(self.redhat_sapi + 'cvrf.json')
-                cvrf = json.loads(response.read())
-                with open(today_pickle, 'wb') as p:
-                    pickle.dump(cvrf, p, -1)
-            else:
-                return ['disconnected with no pickle']
+            return ['disconnected with no pickle']
         return cvrf
 
     def retrieve_ovals(self):
         ovals = {}
-        oval_pickles = self.picklejar + '/OVALS'
+        oval_pickles = f'{self.picklejar}/OVALS'
         if not os.path.isdir(oval_pickles):
             os.makedirs(oval_pickles)
         if self.connected:
             for rhsa in self.rhsas:
                 title = rhsa['RHSA']
-                this_pickle = oval_pickles + '/' + title + '.pickle'
+                this_pickle = f'{oval_pickles}/{title}.pickle'
                 if os.path.isfile(this_pickle):
                     with open(this_pickle, 'rb') as p:
                         ovals[title] = pickle.load(p)
                         if self.debug:
-                            print('+ unpickling OVAL for ' + title)
+                            print(f'+ unpickling OVAL for {title}')
                 else:
-                    u = self.redhat_sapi + 'oval/' + title + '.json'
+                    u = f'{self.redhat_sapi}oval/{title}.json'
                     try:
                         response = urllib2.urlopen(u)
                         oval = json.loads(response.read())
@@ -108,31 +107,31 @@ class SAPI(object):
                             pickle.dump(oval, p, -1)
                         ovals[title] = oval
                         if self.debug:
-                            print('+ retrieved OVAL for ' + title)
+                            print(f'+ retrieved OVAL for {title}')
                     except Exception as e:
                         ovals[title] = {'no oval': 'no oval'}
                         if self.debug:
-                            print('+ no OVAL found for ' + title)
+                            print(f'+ no OVAL found for {title}')
         else:
             for rhsa in self.rhsas:
                 title = rhsa['RHSA']
-                this_pickle = oval_pickles + '/' + title + '.pickle'
+                this_pickle = f'{oval_pickles}/{title}.pickle'
                 if os.path.isfile(this_pickle):
                     with open(this_pickle, 'rb') as p:
                         ovals[title] = pickle.load(p)
                         if self.debug:
-                            print('+ unpickling OVAL for ' + title)
+                            print(f'+ unpickling OVAL for {title}')
         return ovals
 
     def retrieve_rhsa(self, title, resource_url):
         pickledir = self.get_rhsa_pickle_directory(title)
-        this_pickle = pickledir + '/' + title + '.pickle'
+        this_pickle = f'{pickledir}/{title}.pickle'
         if os.path.isfile(this_pickle):
             with open(this_pickle, 'rb') as p:
                 rhsa = pickle.load(p)
         else:
             if self.debug:
-                print('+ pickling ' + title)
+                print(f'+ pickling {title}')
             response = urllib2.urlopen(resource_url)
             rhsa = json.loads(response.read())
             with open(this_pickle, 'wb') as p:
@@ -142,9 +141,9 @@ class SAPI(object):
     def get_rhsa(self, title):
         try:
             pickledir = self.get_rhsa_pickle_directory(title)
-            this_pickle = pickledir + '/' + title + '.pickle'
+            this_pickle = f'{pickledir}/{title}.pickle'
             if self.debug:
-                print('+ unpickling ' + this_pickle)
+                print(f'+ unpickling {this_pickle}')
             with open(this_pickle, 'rb') as p:
                 rhsa = pickle.load(p)
         except Exception as e:
@@ -156,40 +155,39 @@ class SAPI(object):
             title = rhsa['RHSA']
             resource_url = rhsa['resource_url']
             pickledir = self.get_rhsa_pickle_directory(title)
-            this_pickle = pickledir + '/' + title + '.pickle'
+            this_pickle = f'{pickledir}/{title}.pickle'
             if not os.path.isfile(this_pickle):
                 new_rhsa = self.retrieve_rhsa(title, resource_url)
 
     def generate_rhsas(self, cvrf):
         rhsas = []
-        today_pickle = self.picklejar + '/RHSAS_' + self.day + '.pickle'
+        today_pickle = f'{self.picklejar}/RHSAS_{self.day}.pickle'
         if os.path.isfile(today_pickle):
             with open(today_pickle, 'rb') as p:
                 rhsas = pickle.load(p)
-        else:
-            if self.connected:
-                for entry in cvrf:
-                    rhsa = {}
-                    # Only keep entries with updated packages
-                    if entry['released_packages']:
-                        for tag in ['CVEs', 'RHSA', 'bugzillas',
-                                    'released_on', 'released_packages',
-                                    'resource_url', 'severity']:
-                            if entry[tag]:
-                                rhsa[tag] = entry[tag]
-                        if entry['oval']['has_oval']:
-                            rhsa['oval_resource_url'] = \
+        elif self.connected:
+            for entry in cvrf:
+                rhsa = {}
+                # Only keep entries with updated packages
+                if entry['released_packages']:
+                    for tag in ['CVEs', 'RHSA', 'bugzillas',
+                                'released_on', 'released_packages',
+                                'resource_url', 'severity']:
+                        if entry[tag]:
+                            rhsa[tag] = entry[tag]
+                    if entry['oval']['has_oval']:
+                        rhsa['oval_resource_url'] = \
                                 entry['oval']['resource_url']
-                        rhsas.append(rhsa)
-                with open(today_pickle, 'wb') as p:
-                    pickle.dump(rhsas, p, -1)
-            else:
-                return ['disconnected with no pickle']
+                    rhsas.append(rhsa)
+            with open(today_pickle, 'wb') as p:
+                pickle.dump(rhsas, p, -1)
+        else:
+            return ['disconnected with no pickle']
         return rhsas
 
     def index_by_rpm(self):
         if self.connected:
-            with open(self.picklejar + '/index_by_rpm.pickle', 'wb') as p:
+            with open(f'{self.picklejar}/index_by_rpm.pickle', 'wb') as p:
                 index = {}
                 for rhsa in self.rhsas:
                     for package in rhsa['released_packages']:
@@ -199,7 +197,7 @@ class SAPI(object):
                             index[package] = [rhsa['RHSA']]
                 pickle.dump(index, p, -1)
         else:
-            with open(self.picklejar + '/index_by_rpm.pickle', 'rb') as p:
+            with open(f'{self.picklejar}/index_by_rpm.pickle', 'rb') as p:
                 index = pickle.load(p)
         return index
 

@@ -21,7 +21,7 @@ class RedTeamTrello(object):
         self.cards_by_name = {}
         self.cards_by_id = {}
 
-        self.cache_dir = os.getcwd() + '/trello'
+        self.cache_dir = f'{os.getcwd()}/trello'
         if kwargs.get('cache_dir'):
             self.cache_dir = kwargs['cache_dir'] + '/trello'
 
@@ -32,7 +32,7 @@ class RedTeamTrello(object):
             self.config_yml = kwargs['config']
         else:
             # Otherwise, go with the default config file
-            self.config_yml = self.cache_dir + '/trello.yml'
+            self.config_yml = f'{self.cache_dir}/trello.yml'
         try:
             with open(self.config_yml) as f:
                 self.config = yaml.safe_load(f.read())
@@ -46,8 +46,8 @@ class RedTeamTrello(object):
             self.template_dir = kwargs['templates']
         # We currently only have 'mapped' and 'curated' exploit states, with a
         # jinja2 template for each
-        self.template_curated = self.template_dir + '/curated.j2'
-        self.template_mapped = self.template_dir + '/mapped.j2'
+        self.template_curated = f'{self.template_dir}/curated.j2'
+        self.template_mapped = f'{self.template_dir}/mapped.j2'
         try:
             with open(self.template_curated) as f:
                 pass
@@ -59,7 +59,7 @@ class RedTeamTrello(object):
 
         # Get auth keys, either from a yml file, dict,  or environment
         # variables
-        auth_yml = self.cache_dir + '/trello/auth.yml'
+        auth_yml = f'{self.cache_dir}/trello/auth.yml'
         if os.path.isfile(auth_yml):
             try:
                 self.auth = yaml.safe_load(auth_yml)
@@ -79,8 +79,7 @@ class RedTeamTrello(object):
             auth = {}
             for v in trello_auth_values:
                 if os.environ.get(v) is None:
-                    raise Exception('redteam needs ' + v + ' environment ' +
-                                    'variable to be set')
+                    raise Exception((f'redteam needs {v} environment ' + 'variable to be set'))
                 auth[v] = os.environ.get(v)
             self.auth = auth
 
@@ -106,7 +105,7 @@ class RedTeamTrello(object):
         exploits = {}
         try:
             with open(csv) as f:
-                for line in f.readlines():
+                for line in f:
                     # If there are more than two values, the EDB ID has been
                     # curated.
                     if len(line.split(',')) > 2:
@@ -115,30 +114,24 @@ class RedTeamTrello(object):
                         # the CVE IDs
                         if exploits.get(edb_id):
                             exploits[edb_id]['cve_ids'] = \
-                                exploits[edb_id]['cve_ids'] + ', ' + \
-                                cve_id.rstrip()
-                        # If not, make a new EDB dict
+                                    exploits[edb_id]['cve_ids'] + ', ' + \
+                                    cve_id.rstrip()
                         else:
-                            exploits[edb_id] = {}
-                            exploits[edb_id]['edb_id'] = edb_id
-                            exploits[edb_id]['cve_ids'] = cve_id.rstrip()
+                            exploits[edb_id] = {'edb_id': edb_id, 'cve_ids': cve_id.rstrip()}
                             exploits[edb_id]['cpe'] = cpe
                             exploits[edb_id]['scoring'] = scoring
                             exploits[edb_id]['score'] = score
                             exploits[edb_id]['curated'] = True
-                    # If there are only two values, the EDB ID has been mapped
                     else:
                         edb_id, cve_id = line.split(',')
                         # We check to see if we already have this EDB ID in
                         # the dict. If so, append the CVE IDs
                         if exploits.get(edb_id):
                             exploits[edb_id]['cve_ids'] = \
-                                exploits[edb_id]['cve_ids'] + ', ' + \
-                                cve_id.rstrip()
+                                    exploits[edb_id]['cve_ids'] + ', ' + \
+                                    cve_id.rstrip()
                         else:
-                            exploits[edb_id] = {}
-                            exploits[edb_id]['edb_id'] = edb_id
-                            exploits[edb_id]['cve_ids'] = cve_id.rstrip()
+                            exploits[edb_id] = {'edb_id': edb_id, 'cve_ids': cve_id.rstrip()}
         except IOError as e:
             raise IOError('redteam could not parse the CVE csv input: ' +
                           str(e))
@@ -186,12 +179,12 @@ class RedTeamTrello(object):
         """Render a card's description based on a jinja2 template"""
 
         # Validate that we're dealing with an accepted state
-        if state == 'mapped' or state == 'curated':
+        if state in ['mapped', 'curated']:
             try:
                 # Render and return the template
                 jinja_env = \
-                    Environment(loader=FileSystemLoader(self.template_dir))
-                return jinja_env.get_template(state + '.j2').render(values)
+                        Environment(loader=FileSystemLoader(self.template_dir))
+                return jinja_env.get_template(f'{state}.j2').render(values)
             except Exception as e:
                 raise Exception('redteam could not get or render template ' +
                                 state + '.j2: ' + str(e))
@@ -213,11 +206,7 @@ class RedTeamTrello(object):
                 # Normally we use the cards cache, but we update it if
                 # use_cache is set to false
                 self.update_cards_cache(list_id=list_id)
-            if name in self.cards_by_name.keys():
-                # If the card exists, return its ID
-                return self.cards_by_name[name]
-            else:
-                return None
+            return self.cards_by_name[name] if name in self.cards_by_name.keys() else None
         except Exception as e:
             raise Exception('redteam cannot get_card_id for name ' +
                             name + ' in list ' + list_id + ' ' + str(e))
@@ -231,11 +220,7 @@ class RedTeamTrello(object):
     def add_card(self, list_id, name, desc, **kwargs):
         """Use the Trello SDK to create a new card"""
 
-        # By default we don't use any labels, but we'll check for explictly
-        # set ones
-        card_labels = None
-        if kwargs.get('card_labels'):
-            card_labels = kwargs['card_lables']
+        card_labels = kwargs['card_lables'] if kwargs.get('card_labels') else None
         try:
             # Get the board object
             board = self.client.get_board(board_id=self.config['board_id'])
@@ -248,8 +233,9 @@ class RedTeamTrello(object):
                 # Otherwise, create the card without labels
                 board_list.add_card(name=name, desc=desc)
         except Exception as e:
-            raise Exception('redteam could not add card to list ' + list_id +
-                            ' ' + str(e))
+            raise Exception(
+                (f'redteam could not add card to list {list_id}' + ' ') + str(e)
+            )
 
 
 

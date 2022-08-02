@@ -26,33 +26,30 @@ class RedTeam(object):
         if kwargs.get('debug'):
             self.debug = kwargs['debug']
 
-        if kwargs.get('init_trello'):
-            if kwargs['init_trello'] is True:
-                try:
-                    self.setup_trello()
-                    # Todo: this seems broken. Fix it, for now commented out
-                    # self.connect_to_trello = True
-                    # if kwargs.get('connect_to_trello'):
-                    #     self.connect_to_trello = kwargs['connect_to_trello']
-                    # if self.connect_to_trello:
-                    #     self.RedTeamTrello = \
-                    #         RedTeamTrello.RedTeamTrello(cache_dir=self.cache_dir)
-                except Exception as e:
-                    raise
-        if kwargs.get('init_edb'):
-            if kwargs['init_edb'] is True:
-                try:
-                    self.EDB = EDB.EDB(cache_dir=self.cache_dir)
-                except Exception as e:
-                    raise
+        if kwargs.get('init_trello') and kwargs['init_trello'] is True:
+            try:
+                self.setup_trello()
+                # Todo: this seems broken. Fix it, for now commented out
+                # self.connect_to_trello = True
+                # if kwargs.get('connect_to_trello'):
+                #     self.connect_to_trello = kwargs['connect_to_trello']
+                # if self.connect_to_trello:
+                #     self.RedTeamTrello = \
+                #         RedTeamTrello.RedTeamTrello(cache_dir=self.cache_dir)
+            except Exception as e:
+                raise
+        if kwargs.get('init_edb') and kwargs['init_edb'] is True:
+            try:
+                self.EDB = EDB.EDB(cache_dir=self.cache_dir)
+            except Exception as e:
+                raise
 
-        if kwargs.get('init_sapi'):
-            if kwargs['init_sapi'] is True:
-                try:
-                    self.SAPI = SAPI.SAPI(debug=self.debug,
-                                          cache_dir=self.cache_dir)
-                except Exception as e:
-                    raise
+        if kwargs.get('init_sapi') and kwargs['init_sapi'] is True:
+            try:
+                self.SAPI = SAPI.SAPI(debug=self.debug,
+                                      cache_dir=self.cache_dir)
+            except Exception as e:
+                raise
 
     def setup_trello(self, **kwargs):
         source_dir = os.path.dirname(os.path.realpath(__file__))
@@ -62,16 +59,16 @@ class RedTeam(object):
 
         try:
             for new_dir in ['edb', 'trello', 'sapi', 'sapi/picklejar']:
-                dir_name = self.cache_dir + '/' + new_dir
+                dir_name = f'{self.cache_dir}/{new_dir}'
                 if not os.path.isdir(dir_name):
                     self.funcs.mkdir_p(dir_name)
                     if self.debug:
-                        print('+ made directory: ' + dir_name)
+                        print(f'+ made directory: {dir_name}')
 
             # setup trello files
             need_to_untar = False
             for filename in ['curated.j2', 'mapped.j2', 'trello.yml']:
-                new_file = self.cache_dir + '/trello/' + filename
+                new_file = f'{self.cache_dir}/trello/{filename}'
                 if not os.path.isfile(new_file):
                     need_to_untar = True
                     # shutil.copy2(source_dir + '/defaults/trello/' + filename,
@@ -81,11 +78,16 @@ class RedTeam(object):
                     #           ' to ' + new_file)
             if need_to_untar:
                 tar = self.funcs.which('tar')
-                r = self.funcs.run_command('(cd ' + self.cache_dir + '; ' +
-                                           tar + ' xzf' + source_dir +
-                                           '/trello.tar.gz)', 'Trello')
+                r = self.funcs.run_command(
+                    (
+                        (((f'(cd {self.cache_dir}; ' + tar) + ' xzf') + source_dir)
+                        + '/trello.tar.gz)'
+                    ),
+                    'Trello',
+                )
+
                 if self.debug:
-                    print('+ untarred ' + source_dir + '/trello.tar.gz')
+                    print(f'+ untarred {source_dir}/trello.tar.gz')
 
         except Exception as e:
             raise
