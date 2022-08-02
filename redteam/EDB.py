@@ -18,10 +18,10 @@ __status__ = 'alpha'
 class EDB(object):
     def __init__(self, **kwargs):
         self.dir = kwargs['cache_dir'] + '/edb'
-        self.filescsv = self.dir + '/files.csv'
+        self.filescsv = f'{self.dir}/files.csv'
         self.filescsv_url = 'https://raw.githubusercontent.com/' + \
-                            'offensive-security/exploit-database/' + \
-                            'master/files.csv'
+                                'offensive-security/exploit-database/' + \
+                                'master/files.csv'
         self.edb_url = 'https://www.exploit-db.com/exploits/'
         self.ua = UserAgent()
         self.headers = {'User-Agent': str(self.ua.chrome)}
@@ -62,17 +62,19 @@ class EDB(object):
             with open(self.filescsv) as f:
                 for line in f.readlines()[1:]:
                     edb_id = ''
-                    exploit = {}
                     fields =  line.split(',')
                     edb_id = fields[0]
-                    exploit['filename'] = fields[1]
-                    exploit['description'] = fields[2]
-                    exploit['date'] = fields[3]
-                    exploit['author'] = fields[4]
-                    exploit['platform'] = fields[5]
-                    exploit['os_type'] = fields[6]
-                    exploit['port'] = fields[7]
-                    exploit['edb_url'] = self.edb_url + edb_id
+                    exploit = {
+                        'filename': fields[1],
+                        'description': fields[2],
+                        'date': fields[3],
+                        'author': fields[4],
+                        'platform': fields[5],
+                        'os_type': fields[6],
+                        'port': fields[7],
+                        'edb_url': self.edb_url + edb_id,
+                    }
+
                     exploits[edb_id] = exploit
         except Exception as e:
             raise Exception('redteam.EDB could not parse files.csv: ' +
@@ -83,7 +85,7 @@ class EDB(object):
         if self.metadata.get(edb_id):
             return self.metadata[edb_id]['description']
         else:
-            raise Exception('no exploit found for EDB ID: ' + edb_id)
+            raise Exception(f'no exploit found for EDB ID: {edb_id}')
 
     def get_url(self, edb_id):
         return self.edb_url + edb_id

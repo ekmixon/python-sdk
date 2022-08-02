@@ -27,7 +27,7 @@ class IncludeFuncs(object):
                                  stderr=subprocess.STDOUT)
             results = p.communicate()[0]
         except Exception as e:
-            raise Exception(description + ' failed: ' + str(e))
+            raise Exception(f'{description} failed: {str(e)}')
         return results
 
     @staticmethod
@@ -35,18 +35,14 @@ class IncludeFuncs(object):
         try:
             os.makedirs(path)
         except OSError as e:
-            if e.errno == 17 and os.path.isdir(path):
-                pass
-            else:
+            if e.errno != 17 or not os.path.isdir(path):
                 raise
 
     @staticmethod
     def is_executable(absolute_path):
-        if os.path.isfile(absolute_path) and \
-                os.access(absolute_path, os.X_OK):
-            return True
-        else:
-            return False
+        return bool(
+            os.path.isfile(absolute_path) and os.access(absolute_path, os.X_OK)
+        )
 
     def which(self, program):
         import os
